@@ -117,7 +117,7 @@ Semoga setiap baris kerja yang dijalankan lewat framework ini menjadi jalan reze
 Amin.
 
 ## Support
-yang mau mendukung bantu bapak ini beli susu dan popok saya silahkan donasi ke 
+yang mau mendukung bantu bapak ini beli susu dan popok untuk anak saya silahkan donasi ke 
 https://trakteer.id/rianyunandar/tip
 
 
