@@ -1,0 +1,298 @@
+# .clinerules — Enterprise-Grade Agentic Framework
+# Version: 3.0.0 | Project-Agnostic | Fault-Tolerant
+# Executor: DeepSeek (128k, timeout-prone) | Reviewer: Gemini | Arch: Tech Lead
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⚡ READ THIS ENTIRE FILE BEFORE TAKING ANY ACTION IN THIS REPOSITORY.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+---
+
+## PILLAR 1 — SESSION BOOTSTRAP & AUTO-DISCOVERY
+
+**Run this block at the start of EVERY new session. No exceptions.**
+
+```bash
+# Step 1: Identify project stack from manifest files
+cat package.json 2>/dev/null \
+  || cat composer.json 2>/dev/null \
+  || cat go.mod 2>/dev/null \
+  || cat Cargo.toml 2>/dev/null \
+  || cat pyproject.toml 2>/dev/null \
+  || cat pom.xml 2>/dev/null \
+  || cat build.gradle 2>/dev/null \
+  || echo "NO MANIFEST FOUND — inspect directory manually"
+
+# Step 2: Scan project directory structure (2 levels)
+find . -maxdepth 2 -type d \
+  ! -path './.git*' ! -path './node_modules*' \
+  ! -path './vendor*' ! -path './.cache*' | sort
+
+# Step 3: Read operational state
+cat .ai/MEMORY.md
+cat .ai/scratchpad.md
+
+# Step 4: List available skills
+ls .ai/skills/
+```
+
+After discovery:
+- Fill in `.ai/ARCHITECTURE.md` Section 1 (Discovered Stack table)
+- Log `[BOOT]` entry to `.ai/MEMORY.md`
+- Report stack to user using `[BOOT]` prefix
+
+**Do NOT assume any stack. Always discover first.**
+
+---
+
+## PILLAR 2 — DYNAMIC SKILL RETRIEVAL (MANDATORY)
+
+Skills live in `.ai/skills/` as individual `.md` files.
+You MUST load the relevant skill(s) before starting ANY technical task.
+
+```bash
+# Discover what is available
+ls .ai/skills/
+
+# Load the skill(s) relevant to the current task
+cat .ai/skills/<skill-name>.md
+
+# Search across skills by keyword
+grep -rl "migration\|schema" .ai/skills/
+```
+
+**Skill Selection Map:**
+
+| Task Type                       | Load Skill File                         |
+|---------------------------------|-----------------------------------------|
+| New feature or bug fix          | `tdd-workflow.md`                       |
+| API endpoint design or review   | `api-design.md`                         |
+| Auth / secrets / file uploads   | `security-review.md`                    |
+| Code structure, naming, DRY     | `coding-standards.md`                   |
+| DB schema or migration          | `database-migrations.md`                |
+| E2E / browser testing           | `e2e-testing.md`                        |
+| Frontend component work         | `frontend-patterns.md`                  |
+| Backend service / repo layer    | `backend-patterns.md`                   |
+| Git operations (branch/PR/merge)| `git-workflow.md`                       |
+| Architecture decision (ADR)     | `architecture-decision-records.md`      |
+| Container / CI-CD pipeline      | `deployment-patterns.md` `docker-patterns.md` |
+| Unfamiliar codebase             | `codebase-onboarding.md`                |
+| Pre-PR quality gate             | `verification-loop.md`                  |
+
+**RULE: Never work from memory alone. Always `cat` the skill file first.**
+
+---
+
+## PILLAR 3 — APPROVAL GATE (HARD BLOCK)
+
+For every non-trivial task (new file, refactor, migration, new endpoint):
+
+### Step A — Write Plan to `.ai/scratchpad.md`
+
+```markdown
+## Plan: [Task Title]
+Date: YYYY-MM-DD HH:MM
+Status: AWAITING APPROVAL
+Skills Loaded: [list of skill files read]
+
+### Objective
+[One sentence: what and why]
+
+### Affected Files
+- [ ] path/to/file.ext  →  new | modify | delete
+
+### Phases
+- [ ] Phase 1: [name] — [deliverable]
+- [ ] Phase 2: [name] — [deliverable]
+- [ ] Phase 3: [name] — [deliverable]
+
+### Risks & Mitigations
+- [Risk] → [Mitigation]
+
+### Definition of Done
+- [ ] All phase checkboxes marked [x]
+- [ ] Tests pass (coverage ≥ 80%)
+- [ ] No lint / type / build errors
+- [ ] Security checklist passed (if applicable)
+- [ ] Tech Lead approved
+```
+
+### Step B — STOP AND WAIT
+
+After writing the plan:
+1. Report: `[PLAN] Plan written to scratchpad. Waiting for "Lanjut".`
+2. **DO NOT write, create, or modify any source file until user responds with "Lanjut".**
+
+Violation of the Approval Gate is a framework error. Stop, revert any changes, re-plan.
+
+**Exception:** Trivial single-line fixes (typo, comment) may proceed without a plan.
+When in doubt → write the plan.
+
+---
+
+## PILLAR 4 — MICRO-SAVING (ANTI-TIMEOUT PROTOCOL)
+
+DeepSeek is prone to API timeout and connection drops. Protect progress with micro-saves.
+
+### Rules
+
+1. **Max 2 source files per response.** After completing 2 files, STOP and emit:
+
+```
+[SAVE POINT]
+═══════════════════════════════════════
+Phase:      [n] / [total]
+Completed:  [file1], [file2]
+Next:       [file3] — [what it does]
+Scratchpad: ✓ updated
+Memory:     ✓ logged
+─────────────────────────────────────
+Reply "Lanjut" to continue.
+```
+
+2. **After EACH completed file:** mark its checkbox `[x]` in `.ai/scratchpad.md` immediately.
+
+3. **After EACH completed phase:** append a log entry to `.ai/MEMORY.md` before starting the next phase.
+
+4. **If session is interrupted:** the next agent reads `.ai/scratchpad.md` to find the
+   last `[x]` item and resumes from the first unchecked `[ ]` item.
+
+### Scratchpad Tracking Format
+
+```markdown
+- [x] Phase 1 / File: src/services/UserService.ts   — DONE 2024-01-15 09:14
+- [x] Phase 1 / File: src/repositories/UserRepo.ts  — DONE 2024-01-15 09:22
+- [ ] Phase 2 / File: src/controllers/UserController.ts
+- [ ] Phase 2 / File: tests/UserController.test.ts
+```
+
+---
+
+## FILE SYSTEM PERMISSIONS
+
+| Path | Permission | Notes |
+|------|-----------|-------|
+| `.clinerules` | READ-ONLY | Never edit |
+| `.ai/RULES.md` | READ-ONLY | Never edit |
+| `.ai/AGENTS.md` | READ-ONLY | Never edit |
+| `.ai/SKILLS.md` | READ-ONLY | Never edit |
+| `.ai/skills/*.md` | READ-ONLY | Never edit skill files |
+| `.ai/ARCHITECTURE.md` | WRITE (discovery only) | Populate via bootstrap |
+| `.ai/MEMORY.md` | APPEND | Log entries only |
+| `.ai/scratchpad.md` | WRITE | Overwrite per task |
+| All project source files | READ / WRITE | After "Lanjut" only |
+
+---
+
+## CODE QUALITY — UNIVERSAL RULES
+
+These apply regardless of stack. Stack-specific rules are in `coding-standards.md`.
+
+- Max **500 lines per file**. Refactor before adding if near limit.
+- Max **50 lines per function**. Extract helpers early.
+- No deep nesting > 4 levels. Use early returns.
+- No magic strings/numbers. Use named constants or enums.
+- Immutability: return new objects; never mutate parameters.
+- No `any` types (TypeScript). No bare `catch (e) {}`.
+- Validate ALL user input at system/API boundaries.
+- No debug statements (`console.log`, `dd()`, `print()`) in committed code.
+- Zero hardcoded credentials of any kind.
+
+---
+
+## TDD — NON-NEGOTIABLE
+
+Load `.ai/skills/tdd-workflow.md` before starting implementation.
+
+```
+RED   → Write test → confirm FAIL
+GREEN → Minimal impl → confirm PASS
+REFACTOR → Clean up → confirm still PASS
+```
+
+Coverage gate: **≥ 80%** on all changed files.
+
+---
+
+## SECURITY — ZERO TOLERANCE
+
+Load `.ai/skills/security-review.md` before any auth, upload, or secret-handling code.
+
+**Auto-block on:**
+- Hardcoded API key, token, password, or DB credential
+- SQL built via string concatenation
+- User input rendered to HTML without sanitization
+- User-controlled file path without sanitization
+- `.env` or private keys committed to version control
+
+**When found:** STOP → `[BLOCKED]` report → await Tech Lead.
+
+---
+
+## CIRCUIT BREAKER
+
+Three failed auto-fix attempts on the same error = STOP.
+
+```
+[CIRCUIT BREAKER]
+═══════════════════════════════════════════
+Task:      [what was attempted]
+Attempts:  3 / 3
+Error:     [last error verbatim, ≤ 20 lines]
+Theory:    [root cause hypothesis]
+Tried:     1. [approach] / 2. [approach] / 3. [approach]
+Need:      [what Tech Lead input resolves this]
+```
+
+Do NOT attempt a fourth fix. Hand off.
+
+---
+
+## GIT WORKFLOW
+
+Load `.ai/skills/git-workflow.md` before branching, committing, or opening PRs.
+
+Commit format: `<type>(<scope>): <imperative description>`
+Types: `feat` `fix` `refactor` `test` `docs` `chore` `perf` `ci`
+
+Never: `--force` without approval · `--no-verify` ever · push broken code to main.
+
+---
+
+## AGENT DELEGATION
+
+Load `.ai/AGENTS.md` for the full routing table.
+
+| Situation | Delegate to |
+|-----------|-------------|
+| Complex feature planning | `planner` |
+| New feature / bug fix | `tdd-guide` |
+| Code just written | `code-reviewer` |
+| Security-sensitive change | `security-reviewer` |
+| Build errors after 3 tries | `build-error-resolver` |
+| DB schema / query | `database-reviewer` |
+| Architecture decision | `architect` |
+| Dead code removal | `refactor-cleaner` |
+| E2E tests | `e2e-runner` |
+| Docs / codemaps | `doc-updater` |
+
+---
+
+## COMMUNICATION PREFIXES
+
+Use ONLY these status prefixes. No lengthy preambles.
+
+```
+[BOOT]        → Bootstrap complete, stack identified
+[LOADING]     → Reading skill: <name>
+[PLAN]        → Plan in scratchpad — waiting for "Lanjut"
+[SAVE POINT]  → Mid-task checkpoint, see save point block
+[EXEC n/N]    → Executing phase n of N
+[DONE]        → Task complete, results below
+[BLOCKED]     → Security issue or circuit breaker — awaiting input
+[QUESTION]    → Single clarification needed before proceeding
+```
+
+---
+
+*v3.0.0 — Project-agnostic. No stack names, service names, or project names in this file.*
+*Add project-specific patterns to → .ai/skills/<name>.md or .ai/ARCHITECTURE.md*
