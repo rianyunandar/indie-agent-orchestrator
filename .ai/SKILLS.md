@@ -24,6 +24,7 @@
 | [docker-patterns.md](.ai/skills/docker-patterns.md) | Dockerfile best practices, multi-stage builds, compose patterns | Container or local dev setup |
 | [verification-loop.md](.ai/skills/verification-loop.md) | Quality verification checklist, pre-commit gate, Definition of Done | Before opening any PR or marking task done |
 | [codebase-onboarding.md](.ai/skills/codebase-onboarding.md) | How to explore an unknown codebase systematically | First session in any new repo |
+| [production-debugging.md](.ai/skills/production-debugging.md) | Production debugging discipline, error taxonomy, env vars, cross-platform hazards, process manager, async errors, deploy hygiene | Production down, deploy failure, env/config issues, Windows→Linux hazards |
 
 ---
 
