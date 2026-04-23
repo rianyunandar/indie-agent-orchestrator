@@ -1,6 +1,6 @@
 ---
 name: frontend-patterns
-description: Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.
+description: Frontend development patterns for React/Next.js (hooks, state, performance, forms) and plain HTML5 (semantic markup, accessible forms, vanilla JS DOM patterns, Fetch API, CSS custom properties).
 origin: ECC
 ---
 
@@ -640,3 +640,229 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
 ```
 
 **Remember**: Modern frontend patterns enable maintainable, performant user interfaces. Choose patterns that fit your project complexity.
+
+---
+
+## HTML5 Patterns (Vanilla / Non-Framework)
+
+### Semantic Document Structure
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product List — My Store</title>
+    <meta name="description" content="Browse our full product catalogue.">
+    <link rel="canonical" href="https://example.com/products">
+</head>
+<body>
+    <!-- Use semantic elements — not <div> for everything -->
+    <header>
+        <nav aria-label="Main">...</nav>
+    </header>
+
+    <main id="main-content">
+        <h1>Products</h1>  <!-- one <h1> per page -->
+
+        <section aria-labelledby="featured-heading">
+            <h2 id="featured-heading">Featured</h2>
+            <ul role="list">
+                <li><article>...</article></li>
+            </ul>
+        </section>
+    </main>
+
+    <aside aria-label="Filters">...</aside>
+
+    <footer>
+        <p><small>&copy; 2024 My Store</small></p>
+    </footer>
+</body>
+</html>
+```
+
+### Accessible Forms
+
+```html
+<form method="POST" action="/contact" novalidate>
+    <!-- GOOD: label + input always paired -->
+    <div class="field">
+        <label for="name">Full name <abbr title="required" aria-hidden="true">*</abbr></label>
+        <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            autocomplete="name"
+            aria-required="true"
+            aria-describedby="name-error"
+        >
+        <span id="name-error" role="alert" hidden class="error"></span>
+    </div>
+
+    <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email">
+    </div>
+
+    <!-- Grouped radio/checkbox need fieldset + legend -->
+    <fieldset>
+        <legend>Preferred contact method</legend>
+        <label><input type="radio" name="contact" value="email"> Email</label>
+        <label><input type="radio" name="contact" value="phone"> Phone</label>
+    </fieldset>
+
+    <button type="submit">Send message</button>
+</form>
+```
+
+### Client-Side Form Validation (Vanilla JS)
+
+```javascript
+const form = document.querySelector('#contact-form');
+
+form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    if (validate(form)) {
+        submitForm(new FormData(form));
+    }
+});
+
+function validate(form) {
+    let valid = true;
+
+    form.querySelectorAll('[required]').forEach((field) => {
+        const error = document.getElementById(field.getAttribute('aria-describedby'));
+        if (!field.value.trim()) {
+            showError(error, 'This field is required.');
+            field.setAttribute('aria-invalid', 'true');
+            valid = false;
+        } else {
+            clearError(error);
+            field.removeAttribute('aria-invalid');
+        }
+    });
+
+    return valid;
+}
+
+function showError(el, msg) {
+    el.textContent = msg;
+    el.removeAttribute('hidden');
+}
+
+function clearError(el) {
+    el.textContent = '';
+    el.setAttribute('hidden', '');
+}
+```
+
+### DOM Manipulation Best Practices
+
+```javascript
+// GOOD: batch DOM updates with DocumentFragment
+function renderList(items) {
+    const fragment = document.createDocumentFragment();
+    items.forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = item.name;           // textContent, NOT innerHTML
+        li.dataset.id = item.id;
+        fragment.appendChild(li);
+    });
+    document.querySelector('#list').appendChild(fragment);
+}
+
+// GOOD: event delegation — one listener for dynamic items
+document.querySelector('#list').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-id]');
+    if (!item) return;
+    handleClick(item.dataset.id);
+});
+
+// BAD: innerHTML with user data — XSS risk
+list.innerHTML = `<li>${userInput}</li>`;
+
+// GOOD: escape user data if innerHTML is necessary
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+```
+
+### Fetch API Pattern
+
+```javascript
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options,
+    });
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const error = new Error(body.error ?? `HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+    }
+
+    return response.json();
+}
+
+// Usage
+async function loadProducts() {
+    const spinner = document.querySelector('#spinner');
+    try {
+        spinner.hidden = false;
+        const data = await fetchJson('/api/products');
+        renderList(data.items);
+    } catch (err) {
+        showGlobalError(err.message);
+    } finally {
+        spinner.hidden = true;
+    }
+}
+```
+
+### CSS Best Practices with HTML5
+
+```html
+<!-- GOOD: CSS custom properties for theming -->
+<style>
+    :root {
+        --color-primary: #2563eb;
+        --color-error:   #dc2626;
+        --spacing-md:    1rem;
+        --radius-md:     0.375rem;
+    }
+
+    /* Focus visible — do NOT remove outline globally */
+    :focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+
+    /* Reduced motion — respect user preference */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+</style>
+
+<!-- BAD: inline styles for repeated values -->
+<button style="background:#2563eb;border-radius:6px">Click</button>
+```
+
+### Performance Checklist (HTML5)
+
+- [ ] Images: `loading="lazy"` on below-the-fold images, `srcset` for responsive images
+- [ ] Scripts: `defer` for non-critical JS, `async` for independent scripts
+- [ ] Critical CSS inlined; non-critical stylesheets use `media="print" onload`
+- [ ] `preconnect` / `preload` for fonts and critical resources
+- [ ] `<link rel="preload">` for hero images
+- [ ] `will-change` only on actually animated elements; remove after animation
