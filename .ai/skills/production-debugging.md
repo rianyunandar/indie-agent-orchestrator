@@ -6,49 +6,49 @@ origin: custom
 
 # Production Debugging & Deploy Workflow
 
-Panduan tindakan saat production down atau deploy bermasalah. Prioritas: aksi cepat, bukan teori.
+Action guide for when production is down or a deploy has gone wrong. Priority: concrete action, not theory.
 
 ## When to Activate
 
-- Production down atau ada error di live server
-- Deploy gagal atau terjadi regresi setelah deploy
-- Environment variable tidak terbaca dengan benar di server
+- Production down or error on the live server
+- Deploy failed or regression introduced after deploy
+- Environment variable not loading correctly on the server
 - Cross-platform issue (dev Windows, server Linux)
-- Crash loop / proses restart terus-menerus
-- Debugging async error yang susah direproduksi
+- Crash loop / process keeps restarting
+- Debugging an async error that is hard to reproduce
 
 ---
 
 ## Debugging Discipline — 5 Rules
 
-1. **Logs before guesses.** Minta output konkret (`logs`, `status`, `ps`, query error) SEBELUM hypothesizing.
-2. **Numbered copy-paste steps**, bukan paragraf naratif. Satu step = satu blok command siap tempel.
-3. **State expected output** di setiap step — user harus bisa tahu sukses/gagal tanpa bertanya lagi.
-4. **One step fails = STOP.** Paste output, diagnose, baru lanjut. Jangan cascade asumsi.
-5. **Theory goes last.** "Why this works" setelah masalah beres, bukan di awal.
+1. **Logs before guesses.** Ask for concrete output (`logs`, `status`, `ps`, query error) BEFORE hypothesizing.
+2. **Numbered copy-paste steps**, not narrative paragraphs. One step = one ready-to-paste command block.
+3. **State the expected output** at every step — the person debugging must be able to tell success/failure without asking again.
+4. **One step fails = STOP.** Paste the output, diagnose, then continue. Do not cascade assumptions.
+5. **Theory goes last.** "Why this works" after the problem is resolved, not at the start.
 
-### Anti-Patterns (Hindari)
+### Anti-Patterns (Avoid)
 
-- "Mungkin ini, coba aja" tanpa cara verify
-- Solusi abstrak ("cek config DB") tanpa command konkret
-- Minta user mengulang langkah yang sudah gagal tanpa diagnose kenapa
-- Destructive action sebagai shortcut (`rm -rf`, `reset --hard`, `DROP TABLE`) tanpa konfirmasi eksplisit user
+- "Maybe try this" without a way to verify
+- Abstract solutions ("check your DB config") without concrete commands
+- Asking the user to repeat a step that already failed without diagnosing why
+- Destructive actions as shortcuts (`rm -rf`, `reset --hard`, `DROP TABLE`) without explicit user confirmation
 
 ---
 
 ## Generic Error Taxonomy
 
-Kategorikan error ke salah satu ini sebelum suggest solusi:
+Classify the error into one of these categories before suggesting a solution:
 
-| Kategori | Ciri | Strategi |
+| Category | Symptoms | Strategy |
 |---|---|---|
-| **Config/env missing** | Missing var, auth fail, connection refused, fallback ke default | Verify env file exists + loaded; verify runtime picks it up (cache env bisa stale) |
-| **Stale deployment** | File/asset/action yang sudah tidak ada di kode baru | Verify git HEAD di server match lokal, rebuild cache, restart proses dengan env fresh |
+| **Config/env missing** | Missing var, auth fail, connection refused, fallback to default | Verify env file exists and is loaded; verify runtime picks it up (env can be stale after restart) |
+| **Stale deployment** | File/asset/action that no longer exists in the new code | Verify git HEAD on server matches local, rebuild cache, restart process with fresh env |
 | **Infrastructure down** | Connection refused, service not found, socket missing | Check service status, check listener, check network reachability |
-| **Unhandled async error** | Crash loop, restart count naik terus | Cari EventEmitter tanpa error handler, promise tanpa catch, stream tanpa `error` listener |
-| **Race / cache** | Kadang jalan kadang tidak, beda hasil di env berbeda | Reproduce dulu, invalidate cache, test with fresh process |
-| **Cross-platform** | File kelihatan benar tapi runtime aneh (truncate, wrong delimiter, permission) | Check line endings, encoding, permissions, path case sensitivity |
-| **Bot/scanner noise** | Path/action aneh, pattern random di log | Abaikan — bukan bug real, filter dari log analysis |
+| **Unhandled async error** | Crash loop, restart count keeps climbing | Look for EventEmitter without error handler, promise without catch, stream without `error` listener |
+| **Race / cache** | Works sometimes, different results in different environments | Reproduce first, invalidate cache, test with a fresh process |
+| **Cross-platform** | File looks correct but runtime behaves oddly (truncated, wrong delimiter, permission error) | Check line endings, encoding, permissions, path case sensitivity |
+| **Bot/scanner noise** | Odd paths/actions, random patterns in logs | Ignore — not a real bug, filter from log analysis |
 
 ---
 
@@ -56,17 +56,18 @@ Kategorikan error ke salah satu ini sebelum suggest solusi:
 
 ### Golden Rules
 
-- `.env` **tidak pernah di-commit** (masuk `.gitignore`). Template-nya `.env.example` boleh committed.
-- Saat app di-restart, pastikan proses manager (PM2, systemd, docker-compose) **reload env** — banyak yang cache env dari saat pertama start.
-- Verify di runtime bahwa var benar-benar ter-load:
+- `.env` is **never committed** (add to `.gitignore`). The template `.env.example` may be committed.
+- When the app is restarted, make sure the process manager (PM2, systemd, docker-compose) **reloads env** — many cache env from the time of first start.
+- Verify at runtime that variables are actually loaded:
   - Node.js: `console.log(process.env.DB_URL)`
+  - PHP: `echo getenv('DB_URL');` or `$_ENV['DB_URL']`
   - Python: `print(os.getenv("DB_URL"))`
-  - Jangan asumsi.
-- Kalau env file dibuat via editor Windows, selalu convert ke LF sebelum naik ke server.
+  - Do not assume.
+- If the env file was created with a Windows editor, always convert to LF before pushing to the server.
 
-### Safe Pattern — Buat Config File di Server
+### Safe Pattern — Create Config File on Server
 
-Pakai heredoc via SSH (bash native LF), **bukan upload dari Windows**:
+Use heredoc via SSH (bash native LF), **not uploading from Windows**:
 
 ```bash
 cat > .env <<'EOF'
@@ -76,16 +77,19 @@ EOF
 chmod 600 .env
 ```
 
-### Verify Env Loaded di Runtime
+### Verify Env Loaded at Runtime
 
 ```bash
-# Node.js — cek sebelum startup
+# Node.js — check before startup
 node -e "require('dotenv').config(); console.log(process.env.DB_URL)"
+
+# PHP — check from CLI
+php -r "require 'vendor/autoload.php'; (new \Dotenv\Dotenv(__DIR__))->load(); echo getenv('DB_URL');"
 
 # Python
 python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('DB_URL'))"
 
-# PM2 — lihat env yang sedang aktif
+# PM2 — show currently active env
 pm2 env <app-name>
 ```
 
@@ -95,11 +99,11 @@ pm2 env <app-name>
 
 | Hazard | Detect | Fix |
 |---|---|---|
-| CRLF line ending | `cat -A file` → muncul `^M` | `sed -i 's/\r$//' file` atau VS Code toggle CRLF→LF di status bar |
-| Path separator | Script pakai `\` di Linux | Pakai `/` selalu, atau `path.join()` / `os.path.join()` |
-| Case sensitivity | `import "./Foo"` work di Windows, fail di Linux karena file aslinya `foo.ts` | Konsisten lowercase, atau aktifkan `forceConsistentCasingInFileNames` di tsconfig |
-| File permissions | Script tidak executable setelah clone | `chmod +x deploy.sh` atau `git update-index --chmod=+x` sebelum commit |
-| Hidden BOM | File UTF-8 BOM bikin parser error di Linux | Save "UTF-8" (tanpa BOM) di editor |
+| CRLF line ending | `cat -A file` → shows `^M` | `sed -i 's/\r$//' file` or toggle CRLF→LF in VS Code status bar |
+| Path separator | Script uses `\` on Linux | Always use `/`, or `path.join()` / `os.path.join()` |
+| Case sensitivity | `import "./Foo"` works on Windows, fails on Linux because the file is `foo.ts` | Use consistent lowercase, or enable `forceConsistentCasingInFileNames` in tsconfig |
+| File permissions | Script not executable after clone | `chmod +x deploy.sh` or `git update-index --chmod=+x` before committing |
+| Hidden BOM | UTF-8 BOM causes parser errors on Linux | Save as "UTF-8" (without BOM) in your editor |
 
 ### Quick Line Ending Check
 
@@ -108,10 +112,10 @@ pm2 env <app-name>
 cat -A .env | head -5          # ^M = CRLF → problem
 file .env                       # "CRLF line terminators" = problem
 
-# Fix satu file
+# Fix a single file
 sed -i 's/\r$//' .env
 
-# Fix semua file di folder
+# Fix all shell scripts in the project
 find . -type f -name "*.sh" -exec sed -i 's/\r$//' {} +
 find . -type f -name ".env*" -exec sed -i 's/\r$//' {} +
 ```
@@ -120,31 +124,31 @@ find . -type f -name ".env*" -exec sed -i 's/\r$//' {} +
 
 ## Process Manager Basics (PM2, systemd, supervisor, docker)
 
-Prinsip umum apapun managernya:
+Common principles regardless of manager:
 
-| Concern | Apa yang perlu dicek |
+| Concern | What to check |
 |---|---|
-| **Env refresh** | Restart biasa kadang pakai env lama. Cari opsi "reload env" / `--update-env` / full stop+start |
-| **Log location** | Selalu tau di mana log file-nya — `tail -f` itu wajib tau |
-| **Crash loop** | Kalau restart count naik cepat: stop proses, run manual di foreground untuk lihat error beneran |
-| **UI vs CLI** | Dashboard/panel UI sering stale. CLI = source of truth |
+| **Env refresh** | A normal restart often reuses the old env. Look for a "reload env" / `--update-env` option, or do a full stop + start. |
+| **Log location** | Always know where the log file is — being able to `tail -f` it is mandatory. |
+| **Crash loop** | If restart count keeps rising: stop the process, run manually in the foreground to see the real error. |
+| **UI vs CLI** | Dashboard/panel UIs are often stale. CLI = source of truth. |
 
 ### PM2 Commands
 
 ```bash
-# Source of truth — jangan percaya UI panel
+# Source of truth — do not trust the UI panel
 pm2 list
 pm2 logs <app-name> --lines 100
 pm2 env <app-name>
 
-# Restart dengan env fresh (bukan reload biasa)
+# Restart with fresh env (not a simple reload)
 pm2 stop <app-name>
 pm2 delete <app-name>
-pm2 start ecosystem.config.js    # atau command start yang sesuai
+pm2 start ecosystem.config.js    # or the appropriate start command
 
-# Run manual di foreground untuk debug crash loop
+# Run manually in the foreground to debug a crash loop
 pm2 stop <app-name>
-node app.js    # jalankan manual, lihat error langsung
+node app.js    # run manually, read the first error that appears
 ```
 
 ### systemd Commands
@@ -153,7 +157,7 @@ node app.js    # jalankan manual, lihat error langsung
 systemctl status myapp.service
 journalctl -u myapp.service -n 100 --no-pager
 systemctl stop myapp.service
-systemctl daemon-reload            # setelah edit .service file
+systemctl daemon-reload            # required after editing the .service file
 systemctl start myapp.service
 ```
 
@@ -162,28 +166,49 @@ systemctl start myapp.service
 ```bash
 docker-compose ps
 docker-compose logs --tail=100 app
-docker-compose down && docker-compose up -d    # full stop+start dengan env fresh
+docker-compose down && docker-compose up -d    # full stop + start with fresh env
+```
+
+### PHP / Laravel (Apache or Nginx + PHP-FPM)
+
+```bash
+# Restart PHP-FPM to flush opcode cache
+sudo systemctl restart php8.2-fpm   # adjust version as needed
+
+# Clear Laravel caches after deploy
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+
+# Rebuild caches for production
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Check Laravel logs
+tail -n 100 storage/logs/laravel.log
 ```
 
 ---
 
 ## Async Error Handling (Node.js)
 
-Prinsip berlaku mirip untuk Python/Go.
+Similar principles apply for PHP (exceptions) and Go (deferred error returns).
 
 ```javascript
-// Connection pool HARUS punya error handler
-// Tanpa ini: idle error = process crash
+// Connection pool MUST have an error handler
+// Without this: an idle error crashes the process
 pool.on('error', (err) => {
   console.error('pool error:', err);
 });
 
-// EventEmitter 'error' event tanpa handler = throw uncaught
+// EventEmitter 'error' event without a handler = uncaught throw
 emitter.on('error', (err) => {
   console.error('emitter error:', err);
 });
 
-// Unhandled promise rejection catcher
+// Catch unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled rejection at:', promise, 'reason:', reason);
 });
@@ -198,12 +223,16 @@ process.on('SIGTERM', async () => {
 ### Crash Loop Diagnosis
 
 ```bash
-# PM2 — lihat restart count
-pm2 list    # kolom "↺" = restart count
+# PM2 — check restart count
+pm2 list    # the "↺" column = restart count
 
-# Kalau restart count tinggi:
+# If restart count is high:
 pm2 stop <app-name>
-node app.js    # run manual, baca error pertama yang keluar
+node app.js    # run manually, read the first error that appears
+
+# PHP-FPM crash — check system log
+journalctl -u php8.2-fpm -n 50 --no-pager
+tail -n 50 /var/log/php8.2-fpm.log
 ```
 
 ---
@@ -217,12 +246,11 @@ set -o pipefail   # fail if any part of a pipe fails
 
 LOG_FILE="deploy.log"
 
-# Log ke file + stdout
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 
 log "=== Deploy started ==="
 
-# Skip heavy steps kalau tidak perlu
+# Skip pull if already up to date
 CURRENT_SHA=$(git rev-parse HEAD)
 REMOTE_SHA=$(git ls-remote origin HEAD | cut -f1)
 
@@ -233,44 +261,49 @@ else
   log "Pulled latest: $REMOTE_SHA"
 fi
 
-# Run migrations SEBELUM restart app
+# Run migrations BEFORE restarting the app
 log "Running migrations..."
-# <your migration command here>
+# Node.js/Prisma:   npx prisma migrate deploy
+# Laravel:          php artisan migrate --force
+# Raw SQL:          mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < migrations/latest.sql
 
-# Restart app dengan env fresh
+# Restart app with fresh env
 log "Restarting app..."
-pm2 stop app && pm2 delete app
-pm2 start ecosystem.config.js
+# Node.js/PM2:
+pm2 stop app && pm2 delete app && pm2 start ecosystem.config.js
+# Laravel/PHP-FPM:
+# php artisan config:cache && sudo systemctl restart php8.2-fpm
 
 log "=== Deploy done ==="
 ```
 
 ### Deploy Checklist
 
-- [ ] `set -e` dan `set -o pipefail` di awal
-- [ ] Log ke file + stdout (`tee -a deploy.log`)
-- [ ] Idempotent: re-run dengan state sama harus safe
-- [ ] Skip heavy steps kalau git diff tidak ada perubahan
-- [ ] Backup / warning sebelum destructive action
-- [ ] Migrations jalan **sebelum** restart app
+- [ ] `set -e` and `set -o pipefail` at the top
+- [ ] Log to file + stdout (`tee -a deploy.log`)
+- [ ] Idempotent: re-running with the same state must be safe
+- [ ] Skip heavy steps when there are no relevant git changes
+- [ ] Backup / warning before any destructive action
+- [ ] Migrations run **before** restarting the app
+- [ ] Opcode/config cache cleared after deploy (PHP)
 
 ---
 
 ## Database Migrations (Language-Agnostic)
 
-- Versioned SQL files di `migrations/` dengan prefix urut: `001_`, `002_`, dst.
-- Track applied migrations di tabel metadata (`schema_migrations` atau sejenisnya).
+- Versioned SQL files in `migrations/` with ordered prefix: `001_`, `002_`, etc.
+- Track applied migrations in a metadata table (`schema_migrations` or equivalent).
 - Idempotent when possible: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`.
-- Transactional per file: wrap `BEGIN` / `COMMIT` supaya partial failure tidak corrupt schema.
-- Auto-run di deploy: hook di deploy script **sebelum** restart app. Jangan lazy-init di request handler (race condition + first-request delay).
-- **Never edit applied migration** — buat migration baru untuk fix.
+- Transactional per file: wrap with `BEGIN` / `COMMIT` so partial failures do not corrupt the schema.
+- Auto-run in deploy: hook in the deploy script **before** restarting the app. Do not lazy-init in a request handler (race condition + first-request delay).
+- **Never edit an applied migration** — create a new migration to fix.
 
 ---
 
 ## What NOT to Reflexively Suggest
 
-- Reinstall everything saat debug 1 bug — overkill + masking root cause
-- Bypass safety flags (`--no-verify`, `-f`, `--allow-unauthenticated`) kecuali user eksplisit minta
-- Add dependency untuk masalah yang bisa solved dengan ~10 baris kode
-- Refactor sekalian saat user minta fix bug — do one thing
-- Create docs/summary file kecuali diminta — kerja dari konteks percakapan
+- Reinstall everything when debugging a single bug — overkill and masks the root cause
+- Bypass safety flags (`--no-verify`, `-f`, `--allow-unauthenticated`) unless the user explicitly requests it
+- Add a dependency for a problem that can be solved with ~10 lines of code
+- Refactor while the user asked for a bug fix — do one thing
+- Create docs/summary files unless explicitly asked — work from conversation context

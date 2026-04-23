@@ -1,6 +1,6 @@
 ---
 name: database-migrations
-description: Database migration best practices for schema changes, data migrations, rollbacks, and zero-downtime deployments across PostgreSQL, MySQL, and common ORMs (Prisma, Drizzle, Kysely, Django, TypeORM, golang-migrate).
+description: Database migration best practices for schema changes, data migrations, rollbacks, and zero-downtime deployments across PostgreSQL, MySQL (including MySQL-specific DDL constraints), and common ORMs (Prisma, Drizzle, Kysely, Django, TypeORM, golang-migrate, Laravel).
 origin: ECC
 ---
 
@@ -424,6 +424,217 @@ Day 7: Migration drops old status column
 | Manual SQL in production | No audit trail, unrepeatable | Always use migration files |
 | Editing deployed migrations | Causes drift between environments | Create new migration instead |
 | NOT NULL without default | Locks table, rewrites all rows | Add nullable, backfill, then add constraint |
-| Inline index on large table | Blocks writes during build | CREATE INDEX CONCURRENTLY |
+| Inline index on large table | Blocks writes during build | CREATE INDEX CONCURRENTLY (PostgreSQL) / pt-online-schema-change (MySQL) |
 | Schema + data in one migration | Hard to rollback, long transactions | Separate migrations |
 | Dropping column before removing code | Application errors on missing column | Remove code first, drop column next deploy |
+
+---
+
+## MySQL Patterns
+
+MySQL behaves differently from PostgreSQL in several important ways.
+
+### Key Differences from PostgreSQL
+
+| Feature | PostgreSQL | MySQL (InnoDB) |
+|---|---|---|
+| Non-blocking index | `CREATE INDEX CONCURRENTLY` | Use `ALTER TABLE ... ALGORITHM=INPLACE, LOCK=NONE` or `pt-online-schema-change` |
+| `ADD COLUMN` with default | Instant (Postgres 11+) | Instant for non-volatile defaults (MySQL 8.0+); rewrites table on older versions |
+| Transactional DDL | Yes — DDL inside `BEGIN/COMMIT` | No — DDL auto-commits; cannot roll back DDL |
+| `NOT NULL` without default | Locks and rewrites | Rewrites table unless `DEFAULT` or `NULL` given |
+
+### Adding a Column Safely (MySQL)
+
+```sql
+-- GOOD: nullable column (instant, no lock)
+ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL;
+
+-- GOOD: column with default (instant in MySQL 8.0+ InnoDB for non-volatile defaults)
+ALTER TABLE users ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1;
+
+-- BAD: NOT NULL with no default on a populated table (rewrites all rows)
+ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL;
+```
+
+### Adding an Index Without Downtime (MySQL 8.0+)
+
+```sql
+-- GOOD: online DDL — reads and writes remain unblocked
+ALTER TABLE users
+    ADD INDEX idx_users_email (email),
+    ALGORITHM=INPLACE,
+    LOCK=NONE;
+
+-- For very large tables, use pt-online-schema-change (Percona Toolkit)
+-- pt-online-schema-change --alter "ADD INDEX idx_email (email)" D=mydb,t=users
+
+-- BAD: default ALTER TABLE on large tables (may lock)
+ALTER TABLE users ADD INDEX idx_users_email (email);
+```
+
+### Large Batch Updates (MySQL)
+
+```sql
+-- BAD: updates all rows in one statement — potential long lock
+UPDATE users SET normalized_email = LOWER(email);
+
+-- GOOD: chunked update using primary key ranges
+SET @batch = 1000;
+SET @min_id = 0;
+REPEAT
+    UPDATE users
+    SET normalized_email = LOWER(email)
+    WHERE id > @min_id
+      AND normalized_email IS NULL
+    ORDER BY id
+    LIMIT @batch;
+
+    SET @min_id = @min_id + @batch;
+    SELECT SLEEP(0.05);   -- brief pause to reduce I/O pressure
+UNTIL ROW_COUNT() = 0 END REPEAT;
+```
+
+### MySQL-Specific Migration Checklist
+
+- [ ] `ALGORITHM=INPLACE, LOCK=NONE` on index creation for large tables
+- [ ] `VARCHAR` lengths set conservatively — increasing later requires table rebuild below a threshold
+- [ ] Character set: always use `utf8mb4` + `utf8mb4_unicode_ci` (not `utf8`)
+- [ ] No DDL inside a transaction (MySQL silently commits)
+- [ ] Batch DML updates with `LIMIT` + `SLEEP` on large tables
+- [ ] Test with `EXPLAIN` before adding complex indexes
+
+### Character Set (Always utf8mb4)
+
+```sql
+-- Table level
+CREATE TABLE posts (
+    id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    body   TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Column level (override when needed)
+ALTER TABLE users
+    MODIFY COLUMN username VARCHAR(100)
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
+```
+
+---
+
+## Laravel Migrations (PHP)
+
+Laravel's migration system wraps raw SQL in PHP and integrates with both MySQL and PostgreSQL.
+
+### Workflow
+
+```bash
+# Create a new migration file
+php artisan make:migration add_avatar_to_users_table --table=users
+
+# Run all pending migrations
+php artisan migrate
+
+# Rollback the last batch
+php artisan migrate:rollback
+
+# Rollback and re-run all (dev only — destructive)
+php artisan migrate:fresh
+
+# Show migration status
+php artisan migrate:status
+```
+
+### Migration File Structure
+
+```php
+<?php
+// database/migrations/2024_01_15_000001_add_avatar_to_users_table.php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('avatar_url', 500)->nullable()->after('email');
+            $table->boolean('is_active')->default(true)->after('avatar_url');
+            // Index
+            $table->index('is_active');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropIndex(['is_active']);
+            $table->dropColumn(['avatar_url', 'is_active']);
+        });
+    }
+};
+```
+
+### Laravel Data Migration
+
+```php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // Schema change first (separate migration)
+        // This migration handles data backfill only
+        DB::table('users')
+            ->whereNull('display_name')
+            ->orderBy('id')
+            ->chunkById(500, function ($users) {
+                foreach ($users as $user) {
+                    DB::table('users')
+                        ->where('id', $user->id)
+                        ->update(['display_name' => $user->name]);
+                }
+            });
+    }
+
+    public function down(): void
+    {
+        // Data migrations typically have no rollback
+    }
+};
+```
+
+### Creating Indexes Concurrently in Laravel (PostgreSQL)
+
+Laravel wraps DDL in a transaction by default. For `CREATE INDEX CONCURRENTLY`, opt out:
+
+```php
+return new class extends Migration
+{
+    // Disable transaction wrapping for this migration
+    public bool $withinTransaction = false;
+
+    public function up(): void
+    {
+        // Raw SQL required — Blueprint does not support CONCURRENTLY
+        DB::statement('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email ON users (email)');
+    }
+
+    public function down(): void
+    {
+        DB::statement('DROP INDEX CONCURRENTLY IF EXISTS idx_users_email');
+    }
+};
+```
+
+### Production Deploy Command
+
+```bash
+# Always use --force in production (skips the "are you sure?" prompt)
+php artisan migrate --force
+
+# With output — useful to log in deploy scripts
+php artisan migrate --force --verbose 2>&1 | tee -a deploy.log
+```

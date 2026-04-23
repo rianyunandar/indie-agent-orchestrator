@@ -13,10 +13,10 @@
 | [tdd-workflow.md](.ai/skills/tdd-workflow.md) | Red-Green-Refactor cycle, coverage gates, test case templates | Any new feature or bug fix |
 | [api-design.md](.ai/skills/api-design.md) | REST URL structure, HTTP methods, status codes, pagination, versioning | Designing or reviewing API endpoints |
 | [security-review.md](.ai/skills/security-review.md) | OWASP checklist, secrets management, input validation, XSS/SQLi/CSRF | Auth, uploads, secrets, new API routes |
-| [coding-standards.md](.ai/skills/coding-standards.md) | Naming, file structure, KISS/DRY/YAGNI, formatting rules | Code structure, naming, refactoring |
-| [backend-patterns.md](.ai/skills/backend-patterns.md) | Repository pattern, service layer, error handling, API response envelope | Building service/repo/controller layers |
-| [frontend-patterns.md](.ai/skills/frontend-patterns.md) | Component architecture, state management, hooks patterns, performance | React/Vue/Svelte frontend work |
-| [database-migrations.md](.ai/skills/database-migrations.md) | Zero-downtime migrations, expand-contract, index safety, rollback | Any schema/migration changes |
+| [coding-standards.md](.ai/skills/coding-standards.md) | Naming, KISS/DRY/YAGNI; TypeScript/JS, PHP (PSR-12/Laravel), Blade templates, HTML5 | Code structure, naming, refactoring — any stack |
+| [backend-patterns.md](.ai/skills/backend-patterns.md) | Repository pattern, service layer, error handling; Node.js/Next.js + PHP/Laravel patterns, MySQL/PostgreSQL config | Building service/repo/controller layers (any stack) |
+| [frontend-patterns.md](.ai/skills/frontend-patterns.md) | Component architecture, state management, hooks patterns, performance; HTML5 semantic markup, vanilla JS, accessible forms | React/Next.js frontend work; plain HTML5/vanilla JS projects |
+| [database-migrations.md](.ai/skills/database-migrations.md) | Zero-downtime migrations, expand-contract, index safety, rollback; PostgreSQL + MySQL-specific patterns + Laravel migrations | Any schema/migration changes |
 | [e2e-testing.md](.ai/skills/e2e-testing.md) | Playwright, Page Object Model, selectors, CI integration | E2E test authoring or debugging |
 | [git-workflow.md](.ai/skills/git-workflow.md) | Branching strategy, commit format, PR workflow, conflict resolution | Any git branch/commit/merge/PR operation |
 | [architecture-decision-records.md](.ai/skills/architecture-decision-records.md) | ADR format, how to document architecture decisions | Any architectural choice crossing module boundaries |
@@ -24,7 +24,7 @@
 | [docker-patterns.md](.ai/skills/docker-patterns.md) | Dockerfile best practices, multi-stage builds, compose patterns | Container or local dev setup |
 | [verification-loop.md](.ai/skills/verification-loop.md) | Quality verification checklist, pre-commit gate, Definition of Done | Before opening any PR or marking task done |
 | [codebase-onboarding.md](.ai/skills/codebase-onboarding.md) | How to explore an unknown codebase systematically | First session in any new repo |
-| [production-debugging.md](.ai/skills/production-debugging.md) | Production debugging discipline, error taxonomy, env vars, cross-platform hazards, process manager, async errors, deploy hygiene | Production down, deploy failure, env/config issues, Windows→Linux hazards |
+| [production-debugging.md](.ai/skills/production-debugging.md) | Production debugging discipline, error taxonomy, env vars, cross-platform hazards (Windows→Linux), process manager (PM2/systemd/PHP-FPM), async errors, deploy hygiene | Production down, deploy failure, env/config issues |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: backend-patterns
-description: Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes.
+description: Backend architecture patterns for Node.js/Next.js and PHP/Laravel — repository pattern, service layer, error handling, API response envelope, Eloquent optimization, rate limiting, MySQL/PostgreSQL config.
 origin: ECC
 ---
 
@@ -596,3 +596,294 @@ export async function GET(request: Request) {
 ```
 
 **Remember**: Backend patterns enable scalable, maintainable server-side applications. Choose patterns that fit your complexity level.
+
+---
+
+## PHP / Laravel Backend Patterns
+
+### Project Structure (Laravel)
+
+```
+app/
+├── Http/
+│   ├── Controllers/        # Thin controllers — delegate to services
+│   ├── Requests/           # Form Request validation
+│   └── Resources/          # API Resources (JSON transformers)
+├── Models/                 # Eloquent models
+├── Services/               # Business logic
+├── Repositories/           # Data access abstraction
+├── Exceptions/             # Custom exception types
+└── Providers/              # Service providers (DI bindings)
+database/
+├── migrations/
+└── seeders/
+routes/
+├── web.php                 # Blade / session-based routes
+└── api.php                 # Stateless API routes
+```
+
+### Controller — Thin, No Business Logic
+
+```php
+// app/Http/Controllers/UserController.php
+class UserController extends Controller
+{
+    public function __construct(
+        private readonly UserService $users,
+    ) {}
+
+    public function index(Request $request): JsonResponse
+    {
+        $users = $this->users->list(
+            filters: $request->only(['status', 'role']),
+            page: (int) $request->get('page', 1),
+        );
+
+        return UserResource::collection($users)->response();
+    }
+
+    public function store(StoreUserRequest $request): JsonResponse
+    {
+        $user = $this->users->create($request->validated());
+
+        return (new UserResource($user))
+            ->response()
+            ->setStatusCode(201);
+    }
+}
+```
+
+### Form Request Validation
+
+```php
+// app/Http/Requests/StoreUserRequest.php
+class StoreUserRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()->can('create', User::class);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name'     => ['required', 'string', 'max:100'],
+            'email'    => ['required', 'email', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'role'     => ['required', 'in:admin,editor,viewer'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.unique' => 'This email address is already registered.',
+        ];
+    }
+}
+```
+
+### API Resource (JSON Transformer)
+
+```php
+// app/Http/Resources/UserResource.php
+class UserResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id'         => $this->id,
+            'name'       => $this->name,
+            'email'      => $this->email,
+            'role'       => $this->role,
+            'created_at' => $this->created_at->toISOString(),
+            // Conditionally include related data
+            'orders'     => OrderResource::collection($this->whenLoaded('orders')),
+        ];
+    }
+}
+```
+
+### Service Layer
+
+```php
+// app/Services/UserService.php
+class UserService
+{
+    public function __construct(
+        private readonly UserRepository $users,
+    ) {}
+
+    public function create(array $validated): User
+    {
+        return DB::transaction(function () use ($validated) {
+            $user = $this->users->create([
+                'name'     => $validated['name'],
+                'email'    => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role'     => $validated['role'],
+            ]);
+
+            event(new UserRegistered($user));
+
+            return $user;
+        });
+    }
+
+    public function list(array $filters = [], int $page = 1): LengthAwarePaginator
+    {
+        return $this->users->filter($filters)->paginate(20, page: $page);
+    }
+}
+```
+
+### Repository Pattern
+
+```php
+// app/Repositories/UserRepository.php
+interface UserRepositoryInterface
+{
+    public function find(int $id): ?User;
+    public function create(array $data): User;
+    public function filter(array $filters): Builder;
+}
+
+class EloquentUserRepository implements UserRepositoryInterface
+{
+    public function find(int $id): ?User
+    {
+        return User::find($id);
+    }
+
+    public function create(array $data): User
+    {
+        return User::create($data);
+    }
+
+    public function filter(array $filters): Builder
+    {
+        $query = User::query();
+
+        if (isset($filters['status'])) {
+            $query->where('is_active', $filters['status'] === 'active');
+        }
+
+        if (isset($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+
+        return $query;
+    }
+}
+
+// app/Providers/AppServiceProvider.php — bind interface to implementation
+$this->app->bind(UserRepositoryInterface::class, EloquentUserRepository::class);
+```
+
+### Query Optimization (Eloquent)
+
+```php
+// GOOD: eager load relationships to avoid N+1
+$users = User::with(['orders', 'profile'])->paginate(20);
+
+// GOOD: select only needed columns
+$users = User::select('id', 'name', 'email')->get();
+
+// BAD: N+1 — one query per user
+$users = User::all();
+foreach ($users as $user) {
+    echo $user->orders->count();  // N queries
+}
+
+// GOOD: batch count with withCount
+$users = User::withCount('orders')->get();
+foreach ($users as $user) {
+    echo $user->orders_count;  // 0 extra queries
+}
+```
+
+### Centralized Exception Handling
+
+```php
+// app/Exceptions/Handler.php  (Laravel 11: bootstrap/app.php)
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->render(function (ModelNotFoundException $e, Request $request) {
+        if ($request->expectsJson()) {
+            return response()->json(['error' => 'Resource not found.'], 404);
+        }
+        return null;  // fall through to default HTML handling
+    });
+
+    $exceptions->render(function (ValidationException $e, Request $request) {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'error'   => 'Validation failed.',
+                'details' => $e->errors(),
+            ], 422);
+        }
+        return null;
+    });
+})
+```
+
+### Structured Logging (PHP)
+
+```php
+// Use Laravel's Log facade with context
+Log::info('User created', ['user_id' => $user->id, 'role' => $user->role]);
+Log::error('Payment failed', [
+    'user_id'    => $user->id,
+    'order_id'   => $order->id,
+    'error'      => $e->getMessage(),
+]);
+
+// NEVER log sensitive data
+Log::info('Login attempt', ['email' => $user->email]);         // OK
+Log::info('Login attempt', ['password' => $request->password]); // BAD
+```
+
+### Rate Limiting (Laravel)
+
+```php
+// routes/api.php
+Route::middleware(['throttle:60,1'])->group(function () {
+    Route::get('/users', [UserController::class, 'index']);
+});
+
+// Custom rate limiter in RouteServiceProvider
+RateLimiter::for('api', function (Request $request) {
+    return Limit::perMinute(60)->by($request->user()?->id ?? $request->ip());
+});
+
+RateLimiter::for('search', function (Request $request) {
+    return Limit::perMinute(10)->by($request->ip());
+});
+```
+
+### MySQL / PostgreSQL Connections (Laravel)
+
+```php
+// config/database.php — choose driver via DB_CONNECTION env var
+'mysql' => [
+    'driver'    => 'mysql',
+    'host'      => env('DB_HOST', '127.0.0.1'),
+    'port'      => env('DB_PORT', '3306'),
+    'database'  => env('DB_DATABASE'),
+    'username'  => env('DB_USERNAME'),
+    'password'  => env('DB_PASSWORD'),
+    'charset'   => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+    'strict'    => true,   // enforce STRICT_ALL_TABLES
+],
+
+'pgsql' => [
+    'driver'  => 'pgsql',
+    'host'    => env('DB_HOST', '127.0.0.1'),
+    'port'    => env('DB_PORT', '5432'),
+    'database'=> env('DB_DATABASE'),
+    'username'=> env('DB_USERNAME'),
+    'password'=> env('DB_PASSWORD'),
+    'charset' => 'utf8',
+    'schema'  => 'public',
+],
+```
