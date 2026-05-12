@@ -296,3 +296,57 @@ Use ONLY these status prefixes. No lengthy preambles.
 
 *v3.0.0 — Project-agnostic. No stack names, service names, or project names in this file.*
 *Add project-specific patterns to → .ai/skills/<name>.md or .ai/ARCHITECTURE.md*
+
+---
+
+## MODEL SELECTION POLICY (MANDATORY)
+
+Source of truth:
+- `.ai/models.md` (model inventory + ON/OFF status + phase/subphase guide)
+- `.ai/scratchpad.md` (current task execution plan)
+
+Rules:
+1. Every phase/subphase in `CURRENT PLAN` MUST include:
+   `main: ... | alternatif: ... | review: ...`
+2. Execution order is strict:
+   - Use `main` first
+   - If `main` is OFF / error / rate-limit -> use `alternatif`
+   - Before marking step done -> validate with `review`
+3. If model choice changes during execution, update the related `model:` line in
+   `.ai/scratchpad.md` immediately and log reason to `.ai/MEMORY.md`.
+4. Never use a model marked `OFF` in `.ai/models.md` as `main`.
+5. If both `main` and `alternatif` are unavailable, STOP with `[BLOCKED]` and ask
+   Tech Lead to assign replacement model.
+
+Quick flags:
+- `MODEL_SELECTION_SOURCE=.ai/models.md`
+- `PHASE_MODEL_REQUIRED=true`
+- `FALLBACK_POLICY=main->alternatif`
+- `REVIEW_MODEL_REQUIRED=true`
+
+## COMPLETION GATE (ANTI-LUPA / ANTI-HALU)
+
+Step TIDAK boleh dianggap selesai kalau 3 syarat ini belum terpenuhi:
+1. Checkbox step di `.ai/scratchpad.md` sudah `[x]`
+2. Baris `model:` step sudah final (main/alternatif/review yang dipakai)
+3. Log ringkas sudah ditulis ke `.ai/MEMORY.md`
+
+Mandatory output setelah tiap step selesai:
+`[STEP DONE] <phase/step> | scratchpad=updated | memory=logged | model=<nama-model>`
+
+Larangan:
+- Dilarang mengirim `[DONE]` jika masih ada checkbox `[ ]` di CURRENT PLAN.
+- Dilarang mengirim `[DONE]` jika ada step tanpa baris `model:`.
+
+## FLEX MODE: SUBPHASE WINDOW (1-2)
+
+Untuk task yang butuh ritme fleksibel, tentukan ukuran batch di `CURRENT PLAN`:
+- `WORK_WINDOW=1` -> selesai per 1 subphase lalu save/handover
+- `WORK_WINDOW=2` -> selesai per 2 subphase lalu save/handover
+
+Aturan:
+1. Nilai default: `WORK_WINDOW=2`
+2. Nilai valid hanya: `1` atau `2`
+3. Completion Gate tetap berlaku di setiap subphase (bukan tunggu akhir phase)
+4. `[SAVE POINT]` dikirim setiap mencapai batas `WORK_WINDOW`
+5. Jika user minta berhenti kapan pun, kirim `[HANDOVER]` meski belum mencapai batas window

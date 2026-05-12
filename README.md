@@ -120,5 +120,73 @@ Amin.
 yang mau mendukung bantu bapak ini beli susu dan popok untuk anak saya silahkan donasi ke 
 https://trakteer.id/rianyunandar/tip
 
+## Panduan Fill (Model + Scratchpad + Handover)
+
+Panduan ini dipakai saat mulai task baru supaya agent tidak lupa update progres.
+
+### 1. Isi `.ai/models.md`
+
+- Pastikan model yang aktif berstatus `ON`.
+- Model yang tidak dipakai set `OFF`.
+- Untuk model lama/legacy, nyalakan hanya jika benar-benar perlu.
+
+### 2. Isi `CURRENT PLAN` di `.ai/scratchpad.md`
+
+Minimal field yang wajib diisi:
+
+```md
+## Plan: [Task Title]
+Date: YYYY-MM-DD HH:MM
+Status: AWAITING APPROVAL
+
+### Execution Window
+WORK_WINDOW: 1 | 2
+EXEC_SCOPE: subphase | phase
+
+### Phases & Micro-Save Checkpoints
+- [ ] Phase 1 / Step 1: [task]
+      model: main: [model] | alternatif: [model] | review: [model]
+```
+
+Aturan:
+- `WORK_WINDOW: 1` untuk checkpoint tiap 1 subphase.
+- `WORK_WINDOW: 2` untuk checkpoint tiap 2 subphase.
+- `EXEC_SCOPE: phase` jika mau jalan 1 phase penuh.
+- Tetap wajib centang `[x]` per step saat selesai.
+
+### 3. Rule Selesai Step (Anti-Lupa)
+
+Step baru boleh dianggap selesai jika:
+1. Checkbox step di scratchpad sudah `[x]`
+2. Baris `model:` final sudah benar
+3. Log sudah ditulis ke `.ai/MEMORY.md`
+
+Format laporan cepat:
+
+```md
+[STEP DONE] Phase X / Step Y | scratchpad=updated | memory=logged | model=[nama-model]
+```
+
+### 4. Handover saat Pindah Chat Agent
+
+Sebelum pindah chat, kirim:
+
+```md
+[HANDOVER]
+Task: [judul task]
+Tanggal: YYYY-MM-DD HH:MM
+Current Phase: [x/y]
+Last Completed: [Phase/Step + waktu]
+Next Step: [Phase/Step berikutnya]
+Model Plan: main: [model] | alternatif: [model] | review: [model]
+Changed Model?: [No / Yes -> alasan singkat]
+Files Touched: [path1, path2]
+Scratchpad: [updated / not-updated]
+Memory Log: [updated / not-updated]
+Blocker: [none / jelaskan]
+```
+
+Lalu chat baru wajib lanjut dari checkbox `[ ]` pertama di `.ai/scratchpad.md`.
+
 
 
