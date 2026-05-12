@@ -77,6 +77,17 @@ grep -rl "migration\|schema" .ai/skills/
 | Container / CI-CD pipeline      | `deployment-patterns.md` `docker-patterns.md` |
 | Unfamiliar codebase             | `codebase-onboarding.md`                |
 | Pre-PR quality gate             | `verification-loop.md`                  |
+| SEO, AEO, content audit, schema | `seo-aeo.md`                            |
+| Product discovery / MVP scope   | `product-discovery.md`                  |
+| Landing page conversion         | `landing-page-conversion.md`            |
+| Analytics / event tracking      | `analytics-tracking.md`                 |
+| Observability / monitoring      | `observability.md`                      |
+| Launch / go-live readiness      | `launch-checklist.md`                   |
+| Client delivery / handover      | `client-delivery.md`                    |
+| SaaS product patterns           | `saas-patterns.md`                      |
+| AI feature design               | `ai-feature-design.md`                  |
+| Prompt engineering              | `prompt-engineering.md`                 |
+| Payment / billing               | `payment-billing.md`                    |
 
 **RULE: Never work from memory alone. Always `cat` the skill file first.**
 
@@ -350,3 +361,83 @@ Aturan:
 3. Completion Gate tetap berlaku di setiap subphase (bukan tunggu akhir phase)
 4. `[SAVE POINT]` dikirim setiap mencapai batas `WORK_WINDOW`
 5. Jika user minta berhenti kapan pun, kirim `[HANDOVER]` meski belum mencapai batas window
+
+## MODEL ALIAS & PRE-DONE ENFORCEMENT
+
+Additional rules:
+1. Agents SHOULD prefer aliases defined in `.ai/models.md` (`Model Aliases` section)
+   when filling `model:` lines in `.ai/scratchpad.md`.
+2. `[DONE]` is allowed only after `Pre-Done Check` is fully satisfied:
+   - `scratchpad=updated`
+   - `memory=logged`
+   - `remaining_checkboxes=0`
+   - `all_steps_have_model_line=true`
+3. If any Pre-Done item fails, emit `[BLOCKED]` and return to the first missing item.
+4. `active` models are preferred. `inventory` models are fallback-only.
+
+---
+
+## OPERATING OVERRIDES v3.1 (CURRENT)
+
+This section supersedes any older wording in this file when there is a conflict.
+
+### Session Start Checklist
+
+At the start of every new chat or resumed session, the agent must:
+
+1. Read `.ai/models.md`.
+2. Read `.ai/scratchpad.md`.
+3. Read `.ai/handover.md` if it exists.
+4. Read `.ai/install-checklist.md` when setting up a new repository.
+5. Resume from the first unchecked `[ ]` item in `CURRENT PLAN`.
+6. Confirm the active model alias before execution.
+
+### Task Type Defaults
+
+When a plan does not define a specific phase model, use `.ai/models.md` section `Task Type Defaults`.
+
+Required scratchpad field:
+
+```markdown
+### Task Type
+TASK_TYPE: coding | architecture | docs | quick_fix | cheap_task | review | security | handover
+```
+
+### Model Status Rule
+
+1. Prefer model aliases from `.ai/models.md`.
+2. Never use a model or alias that resolves to `OFF` as `main`.
+3. If `main` resolves to `OFF`, replace it with the first `ON` alternative and log the reason to `.ai/MEMORY.md`.
+4. If both `main` and `alternative` are unavailable, emit `[BLOCKED]`.
+5. Inventory models are fallback-only unless the user explicitly enables them.
+
+### Completion Gate
+
+A step is complete only after:
+
+1. Its checkbox is marked `[x]` in `.ai/scratchpad.md`.
+2. Its `model:` line is final.
+3. A log entry is appended to `.ai/MEMORY.md`.
+4. The agent emits:
+   `[STEP DONE] <phase/step> | scratchpad=updated | memory=logged | model=<model-name-or-alias>`
+
+`[DONE]` is allowed only when:
+
+- `scratchpad=updated`
+- `memory=logged`
+- `remaining_checkboxes=0`
+- `all_steps_have_model_line=true`
+
+### Handover Rule
+
+Use `.ai/handover.md` whenever switching chats. A new chat must continue from the first unchecked `[ ]` item in `.ai/scratchpad.md`.
+
+### Small Task Bypass
+
+Trivial tasks may skip the full plan only when all are true:
+
+- The change is one file or documentation-only.
+- No source behavior changes.
+- No security, migration, auth, payment, deployment, or data-loss risk.
+
+Even with bypass, the agent must log the change to `.ai/MEMORY.md` if any file is modified.

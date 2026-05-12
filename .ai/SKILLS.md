@@ -23,6 +23,17 @@
 | [deployment-patterns.md](.ai/skills/deployment-patterns.md) | CI/CD pipelines, blue-green, canary, rollback strategies | Deploy pipeline or release planning |
 | [docker-patterns.md](.ai/skills/docker-patterns.md) | Dockerfile best practices, multi-stage builds, compose patterns | Container or local dev setup |
 | [verification-loop.md](.ai/skills/verification-loop.md) | Quality verification checklist, pre-commit gate, Definition of Done | Before opening any PR or marking task done |
+| [seo-aeo.md](.ai/skills/seo-aeo.md) | SEO audits, answer engine optimization, schema, snippets, search intent, content pruning | SEO/AEO work, content audits, page rewrites, search visibility improvements |
+| [product-discovery.md](.ai/skills/product-discovery.md) | Product discovery, MVP scope, user stories, acceptance criteria, requirement shaping | Turning vague ideas or client briefs into buildable scope |
+| [landing-page-conversion.md](.ai/skills/landing-page-conversion.md) | Landing page conversion, offer clarity, CTA, trust proof, objections | Creating or improving pages meant to convert traffic |
+| [analytics-tracking.md](.ai/skills/analytics-tracking.md) | Event tracking, funnel design, GA4/Plausible/PostHog planning, privacy-safe analytics | Measuring product usage, conversion, activation, and retention |
+| [observability.md](.ai/skills/observability.md) | Logs, metrics, tracing, health checks, alerts, production diagnostics | Production readiness, monitoring, incident response, reliability work |
+| [launch-checklist.md](.ai/skills/launch-checklist.md) | Launch readiness gates for product, tech, SEO, analytics, security, operations | Before go-live, production deploys, client handoff, or marketing launches |
+| [client-delivery.md](.ai/skills/client-delivery.md) | Client intake, scope, revisions, handover, maintenance, acceptance | Freelance/agency delivery for landing pages, SaaS, AI web projects |
+| [saas-patterns.md](.ai/skills/saas-patterns.md) | SaaS account models, tenant boundaries, roles, onboarding, plan gates, dashboards | Building SaaS products, dashboards, subscriptions, multi-user apps |
+| [ai-feature-design.md](.ai/skills/ai-feature-design.md) | AI feature fit, interaction patterns, guardrails, cost, latency, evals | Designing AI web features, assistants, generators, RAG, AI SaaS |
+| [prompt-engineering.md](.ai/skills/prompt-engineering.md) | Prompts, system instructions, output schemas, examples, eval cases | Building, debugging, or upgrading prompts for AI features |
+| [payment-billing.md](.ai/skills/payment-billing.md) | Checkout, subscriptions, invoices, webhooks, idempotency, refunds, entitlements | Payment gateway or billing work for SaaS, ecommerce, paid features |
 | [codebase-onboarding.md](.ai/skills/codebase-onboarding.md) | How to explore an unknown codebase systematically | First session in any new repo |
 | [production-debugging.md](.ai/skills/production-debugging.md) | Production debugging discipline, error taxonomy, env vars, cross-platform hazards (Windows→Linux), process manager (PM2/systemd/PHP-FPM), async errors, deploy hygiene | Production down, deploy failure, env/config issues |
 

@@ -1,4 +1,4 @@
-# scratchpad.md — Agent Planning Workspace & Micro-Save Tracker
+# scratchpad.md - Agent Planning Workspace & Micro-Save Tracker
 # Agent: overwrite CURRENT PLAN section for each new task.
 # Keep ARCHIVED PLANS for session continuity reference.
 # -------------------------------------------------------------------------------
@@ -28,10 +28,19 @@ Skills Loaded:
 ### Stack Context
 [Paste relevant rows from .ai/ARCHITECTURE.md Section 1 here]
 
+### Execution Window
+WORK_WINDOW: 1 | 2   # default: 2
+EXEC_SCOPE: subphase | phase
+
+### Task Type
+TASK_TYPE: coding | architecture | docs | quick_fix | cheap_task | review | security | handover
+
 ### Model Selection Rules
 - Use `.ai/models.md` section `Phase & Subphase Model Guide` as the reference.
+- Use `.ai/models.md` section `Task Type Defaults` when the phase is not specific enough.
 - Every phase or subphase MUST have 3 selections:
   `main: ... | alternative: ... | review: ...`
+- Use model aliases when possible (example: `codex_main`, `reasoning_main`).
 - `main` is used for primary execution.
 - `alternative` is used if `main` is OFF / error / rate-limited.
 - `review` is used to validate output before completion.
@@ -41,16 +50,22 @@ Skills Loaded:
 
 ### Phases & Micro-Save Checkpoints
 - [ ] Phase 1 / Step 1: [file or task]        [ETA: small]
-      model: main: [model] | alternative: [model] | review: [model]
+      model: main: [model-or-alias] | alternative: [model-or-alias] | review: [model-or-alias]
 - [ ] Phase 1 / Step 2: [file or task]        [ETA: small]
-      model: main: [model] | alternative: [model] | review: [model]
+      model: main: [model-or-alias] | alternative: [model-or-alias] | review: [model-or-alias]
 - [ ] Phase 2 / Step 1: [file or task]        [ETA: small]
-      model: main: [model] | alternative: [model] | review: [model]
+      model: main: [model-or-alias] | alternative: [model-or-alias] | review: [model-or-alias]
 - [ ] Phase 2 / Step 2: [test file]           [ETA: small]
-      model: main: [model] | alternative: [model] | review: [model]
+      model: main: [model-or-alias] | alternative: [model-or-alias] | review: [model-or-alias]
 
 ### Risks & Mitigations
 - [Risk description] -> [Mitigation approach]
+
+### Pre-Done Check (Mandatory)
+- [ ] scratchpad=updated
+- [ ] memory=logged
+- [ ] remaining_checkboxes=0
+- [ ] all_steps_have_model_line=true
 
 ### Definition of Done
 - [ ] All phase checkboxes marked [x]
@@ -76,74 +91,53 @@ Fill using the template above, then report:
 
 After completing EACH file or step:
 
-1. Change `[ ]` to `[x]` **immediately** in this file
-2. Append a log entry to `.ai/MEMORY.md`
-3. If 2 files just completed -> emit `[SAVE POINT]` block (see .clinerules Pillar 4)
-4. Continue to next `[ ]` item
-5. If the model changes during execution, update the `model:` line in the related step.
+1. Change `[ ]` to `[x]` immediately in this file.
+2. Append a log entry to `.ai/MEMORY.md`.
+3. Emit `[SAVE POINT]` whenever `WORK_WINDOW` limit is reached.
+4. Continue to the next `[ ]` item.
+5. If model choice changes during execution, update the `model:` line in the related step.
 
-**Example of in-progress plan:**
-```
-- [x] Phase 1 / File: src/services/AuthService.ts   — DONE 2024-01-15 09:14
-- [x] Phase 1 / File: src/types/auth.types.ts       — DONE 2024-01-15 09:22
-                                                       ? [SAVE POINT] emitted here
-- [ ] Phase 2 / File: src/controllers/AuthController.ts
-      model: main: GPT-5.3-Codex | alternative: GPT-5.2-Codex | review: GPT-5.4
-- [ ] Phase 2 / File: tests/auth.controller.test.ts
-      model: main: GPT-5.3-Codex | alternative: GPT-5.2 | review: GPT-5.4
-- [ ] Phase 3 / File: docs/auth-api.md
-      model: main: Claude Sonnet 4.6 | alternative: GPT-5.4 mini | review: GPT-5.4
+Mandatory per-step output:
+
+```markdown
+[STEP DONE] <phase/step> | scratchpad=updated | memory=logged | model=<model-name-or-alias>
 ```
 
-**If session drops** — next agent sees checkboxes, knows exactly where to resume.
+If session drops, the next agent must resume from the first unchecked `[ ]` item.
 
 ---
 
-## ARCHIVED PLANS
+## HANDOVER
 
-[Completed plans move here when replaced by a new Current Plan.]
-[Format: ## ARCHIVED: [Task Title] [YYYY-MM-DD] DONE]
+Use `.ai/handover.md` whenever switching chats or resuming with another agent.
 
-## HANDOVER TEMPLATE (PINDAH CHAT AGENT)
-
-Copy-paste this block whenever switching chats:
-
-```markdown
-[HANDOVER]
-Task: [task title]
-Date: YYYY-MM-DD HH:MM
-Current Phase: [x/y]
-Last Completed: [Phase/Step + waktu]
-Next Step: [next Phase/Step]
-Model Plan: main: [model] | alternative: [model] | review: [model]
-Changed Model?: [No / Yes -> short reason]
-Files Touched: [path1, path2]
-Scratchpad: [updated / not-updated]
-Memory Log: [updated / not-updated]
-Blocker: [none / explain]
-```
-
-Rule cepat:
+Rules:
 - Before switching chat: must send `[HANDOVER]`.
-- New chat must read `.ai/scratchpad.md` then continue from the first `[ ]` checkbox.
+- New chat must read `.ai/models.md`, `.ai/scratchpad.md`, and `.ai/handover.md`.
+- New chat must continue from the first `[ ]` checkbox in `CURRENT PLAN`.
+
+---
 
 ## FLEX MODE (PER 1 / PER 2 SUBPHASE)
 
-Tambahkan field ini di setiap `CURRENT PLAN`:
+Use this in every `CURRENT PLAN`:
 
 ```markdown
 ### Execution Window
 WORK_WINDOW: 1 | 2   # default: 2
+EXEC_SCOPE: subphase | phase
 ```
 
-Interpretasi:
-- `WORK_WINDOW: 1` -> update scratchpad + memory + save point for every completed subphase
-- `WORK_WINDOW: 2` -> update scratchpad + memory + save point for every 2 completed subphases
+Interpretation:
+- `WORK_WINDOW: 1` -> update scratchpad + memory + save point for every completed subphase.
+- `WORK_WINDOW: 2` -> update scratchpad + memory + save point for every 2 completed subphases.
+- `EXEC_SCOPE: phase` -> agent may complete one full phase before stopping, while still checking off every step individually.
 
-Contoh checkpoint:
+Example checkpoint:
+
 ```markdown
 - [x] Phase 1 / Step 1: ...
-      model: main: ... | alternative: ... | review: ...
+      model: main: codex_main | alternative: fallback_fast | review: reasoning_main
 
 [SAVE POINT]
 Window: 1
@@ -153,4 +147,9 @@ Scratchpad: updated
 Memory: logged
 ```
 
+---
 
+## ARCHIVED PLANS
+
+[Completed plans move here when replaced by a new Current Plan.]
+[Format: ## ARCHIVED: [Task Title] [YYYY-MM-DD] DONE]

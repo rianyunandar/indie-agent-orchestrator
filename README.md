@@ -49,7 +49,30 @@ Tujuan akhirnya bukan sekadar “kode selesai”. Tujuan akhirnya adalah menjaga
 
 ## Installation & Usage
 
-### 1. Pasang framework ke repository target
+### 1. Download framework tanpa `.git`
+
+Source repository:
+
+```txt
+https://github.com/rianyunandar/indie-agent-orchestrator
+```
+
+Recommended with `degit`:
+
+```bash
+npx degit rianyunandar/indie-agent-orchestrator temp-agent-kit
+```
+
+Or download ZIP:
+
+```bash
+curl -L https://github.com/rianyunandar/indie-agent-orchestrator/archive/refs/heads/main.zip -o indie-agent-orchestrator.zip
+unzip indie-agent-orchestrator.zip
+```
+
+Both methods download the files without copying the source repository `.git` history.
+
+### 2. Pasang framework ke repository target
 
 Salin file dan folder berikut ke root repository:
 
@@ -58,25 +81,29 @@ Salin file dan folder berikut ke root repository:
 - `.ai/ARCHITECTURE.md`
 - `.ai/scratchpad.md`
 - `.ai/MEMORY.md`
+- `.ai/models.md`
+- `.ai/handover.md`
+- `.ai/install-checklist.md`
+- `.ai/packages.md`
 - `.ai/SKILLS.md`
 - `.ai/AGENTS.md`
 - `.ai/skills/`
 - `.ai/hooks/`
 
-### 2. Jalankan session bootstrap
+### 3. Jalankan session bootstrap
 
 ```bash
 bash .ai/hooks/session-boot.sh
 ```
 
-### 3. Lakukan dynamic skill loading
+### 4. Lakukan dynamic skill loading
 
 ```bash
 ls .ai/skills/
 cat .ai/skills/<skill-name>.md
 ```
 
-### 4. Tulis plan sebelum coding
+### 5. Tulis plan sebelum coding
 
 Gunakan template checkbox di `.ai/scratchpad.md`, lalu tunggu persetujuan user.
 
@@ -85,14 +112,14 @@ Status yang benar sebelum eksekusi:
 - `Status: AWAITING APPROVAL`
 - User sudah membalas: `Lanjut`
 
-### 5. Eksekusi bertahap dengan micro-saving
+### 6. Eksekusi bertahap dengan micro-saving
 
 - Selesaikan langkah kecil
 - Centang checkbox `[x]`
 - Simpan save point
 - Lanjut ke langkah berikutnya
 
-### 6. Tutup task dengan quality gate
+### 7. Tutup task dengan quality gate
 
 - Jalankan pre-commit hook
 - Pastikan test/lint/type-check sesuai aturan
@@ -105,6 +132,10 @@ Status yang benar sebelum eksekusi:
 - `.ai/ARCHITECTURE.md`: template auto-discovery
 - `.ai/scratchpad.md`: plan + micro-save tracker
 - `.ai/MEMORY.md`: rolling window memory
+- `.ai/models.md`: model inventory, aliases, and task defaults
+- `.ai/handover.md`: chat handover protocol
+- `.ai/install-checklist.md`: checklist for installing this framework into a new repo
+- `.ai/packages.md`: repeatable service packages for landing pages, SaaS, and AI web MVPs
 - `.ai/skills/`: skill modular per file
 - `.ai/hooks/`: skrip bash untuk bootstrap, pre-commit, post-task
 
@@ -143,9 +174,12 @@ Status: AWAITING APPROVAL
 WORK_WINDOW: 1 | 2
 EXEC_SCOPE: subphase | phase
 
+### Task Type
+TASK_TYPE: coding | architecture | docs | quick_fix | cheap_task | review | security | handover
+
 ### Phases & Micro-Save Checkpoints
 - [ ] Phase 1 / Step 1: [task]
-      model: main: [model] | alternatif: [model] | review: [model]
+      model: main: [model-or-alias] | alternative: [model-or-alias] | review: [model-or-alias]
 ```
 
 Aturan:
@@ -169,21 +203,23 @@ Format laporan cepat:
 
 ### 4. Handover saat Pindah Chat Agent
 
-Sebelum pindah chat, kirim:
+Gunakan template utama di `.ai/handover.md`. Sebelum pindah chat, kirim:
 
 ```md
 [HANDOVER]
-Task: [judul task]
-Tanggal: YYYY-MM-DD HH:MM
+Task: [task title]
+Date: YYYY-MM-DD HH:MM
 Current Phase: [x/y]
-Last Completed: [Phase/Step + waktu]
-Next Step: [Phase/Step berikutnya]
-Model Plan: main: [model] | alternatif: [model] | review: [model]
-Changed Model?: [No / Yes -> alasan singkat]
+Work Window: [1 | 2]
+Execution Scope: [subphase | phase]
+Last Completed: [Phase/Step + time]
+Next Step: [next Phase/Step]
+Model Plan: main: [model-or-alias] | alternative: [model-or-alias] | review: [model-or-alias]
+Changed Model?: [No / Yes -> short reason]
 Files Touched: [path1, path2]
 Scratchpad: [updated / not-updated]
 Memory Log: [updated / not-updated]
-Blocker: [none / jelaskan]
+Blocker: [none / explain]
 ```
 
 Lalu chat baru wajib lanjut dari checkbox `[ ]` pertama di `.ai/scratchpad.md`.
